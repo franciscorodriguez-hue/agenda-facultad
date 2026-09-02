@@ -1,0 +1,26 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      ".git/**",
+      ".gitignore",
+      ".nojekyll",
+      "node_modules/**",
+      "README.md",
+      "REGLAS-firebase.txt"
+    ],
+    "cleanUrls": false,
+    "headers": [
+      {
+        "source": "**/*.@(js|css|webmanifest|png)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600" }]
+      },
+      {
+        "source": "/sw.js",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      }
+    ]
+  }
+}

@@ -19,11 +19,8 @@ Esto hace que cada persona solo pueda leer y escribir SUS propios
 eventos (agenda/<su-uid>/eventos/...). Nadie más los ve.
 
 ------------------------------------------------------------------
-DOMINIOS AUTORIZADOS (para que ande el login con Google)
+DOMINIOS AUTORIZADOS (login con Google)
 ------------------------------------------------------------------
-Consola de Firebase -> Authentication -> Settings -> "Dominios autorizados"
--> Agregar dominio:
-
-    franciscorodriguez-hue.github.io
-
-(localhost y widgetfacu.firebaseapp.com ya vienen por defecto.)
+Como la app se sirve desde Firebase Hosting (widgetfacu.web.app), NO hay
+que agregar nada: widgetfacu.web.app y widgetfacu.firebaseapp.com ya están
+autorizados por defecto. (El de github.io ya no se usa.)

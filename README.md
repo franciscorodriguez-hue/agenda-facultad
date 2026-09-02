@@ -1,48 +1,42 @@
 # Qué Se Viene
 
 Agenda de facultad con cuenta regresiva a cada parcial, entrega y trámite.
-Los datos viven en **Firebase Realtime Database** (proyecto `WidgetFacu`) y
-se sincronizan en tiempo real entre el celular y la compu.
+Los datos viven en **Firebase Realtime Database** (proyecto `WidgetFacu`) y se
+sincronizan en tiempo real entre el celular y la compu.
 
-- **Celular / navegador:** esta web (GitHub Pages). Se puede "instalar" como app.
-- **Escritorio (Windows):** widget flotante siempre visible → carpeta `../Que Se Viene`.
+- **App (celular / navegador):** https://widgetfacu.web.app  → se puede "instalar".
+- **Widget de escritorio (Windows):** carpeta `../Que Se Viene` (ventana flotante).
 
-Ambos usan exactamente los mismos datos.
+Ambos usan los mismos datos y el mismo login.
 
 ---
 
-## Puesta en marcha (una sola vez)
+## Deploy (Firebase Hosting)
 
-### 1. Reglas y dominio en Firebase
-Seguí `REGLAS-firebase.txt`:
-- agregar el bloque `agenda` a las reglas de Realtime Database
-- agregar `franciscorodriguez-hue.github.io` a los dominios autorizados de Authentication
+La app se sirve desde Firebase Hosting para que el login con Google funcione
+sin problemas de COOP / cookies (mismo dominio que el handler de auth).
 
-### 2. Publicar la web en GitHub Pages
 ```bash
 cd "C:\Users\Francisco\Desktop\agenda-facultad"
-git init
-git add .
-git commit -m "Agenda con cuenta regresiva"
-git branch -M main
-git remote add origin https://github.com/franciscorodriguez-hue/agenda-facultad.git
-git push -u origin main
+npx -y firebase-tools login          # autoriza con tu cuenta Google (una vez)
+npx -y firebase-tools deploy --only hosting
 ```
-Después, en GitHub: **Settings → Pages → Source: `main` / `/ (root)`**.
-En ~1 minuto queda en:
 
-    https://franciscorodriguez-hue.github.io/agenda-facultad/
+Queda en **https://widgetfacu.web.app** (y también `widgetfacu.firebaseapp.com`).
 
-(Si usás otro nombre de repo, cambialo también en `REGLAS-firebase.txt`,
-en `manifest.webmanifest` no hace falta, y en `../Que Se Viene/config.json`.)
+Para actualizar después de cambiar algo: repetir el `deploy`.
+El repo de GitHub queda como copia del código:
+```bash
+git add . && git commit -m "cambios" && git push
+```
 
-### 3. En el celular
-Abrí esa URL con Chrome → menú → **"Agregar a la pantalla principal"**.
-Entrá con tu cuenta de Google.
+---
 
-### 4. En la compu
-Carpeta `../Que Se Viene` → doble clic en **`Iniciar widget.vbs`**.
-La primera vez, en la ventana de gestión, **Entrar con Google** (la misma cuenta).
+## Configuración Firebase (ya hecha)
+
+- Realtime Database creada (us-central1), reglas en `REGLAS-firebase.txt`
+- Authentication → Google habilitado
+- `widgetfacu.web.app` y `widgetfacu.firebaseapp.com` están autorizados por defecto
 
 ---
 
@@ -54,8 +48,9 @@ La primera vez, en la ventana de gestión, **Entrar con Google** (la misma cuent
 | `widget.html` | vista compacta (la usa el widget de escritorio) |
 | `app.js` | Firebase + lógica compartida |
 | `styles.css` | estilos compartidos |
-| `sw.js` + `manifest.webmanifest` | para instalarla como app / abrir offline |
-| `REGLAS-firebase.txt` | reglas de seguridad y dominios a configurar |
+| `sw.js` + `manifest.webmanifest` | instalar como app / abrir offline |
+| `firebase.json` / `.firebaserc` | config de Firebase Hosting |
+| `REGLAS-firebase.txt` | reglas de la base de datos |
 
 ## Datos
 

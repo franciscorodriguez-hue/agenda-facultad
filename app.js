@@ -6,7 +6,9 @@
   // Proyecto Firebase propio de la agenda (Realtime Database + Google).
   var firebaseConfig = {
     apiKey: "AIzaSyDh_QsUK498JLNZZ-M-2GI0V986vsl1wMU",
-    authDomain: "widgetfacu.firebaseapp.com",
+    // authDomain = mismo dominio donde se sirve la app (Firebase Hosting),
+    // así el login con Google no choca con COOP / cookies de terceros.
+    authDomain: "widgetfacu.web.app",
     databaseURL: "https://widgetfacu-default-rtdb.firebaseio.com",
     projectId: "widgetfacu",
     storageBucket: "widgetfacu.firebasestorage.app",
