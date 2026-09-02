@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Qué Se Viene</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  html, body { height: 100%; background: transparent; overflow: hidden; }
+  body { padding: 6px; -webkit-user-select: none; user-select: none; }
+
+  .card {
+    height: 100%;
+    display: flex; flex-direction: column;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,.35);
+    overflow: hidden;
+  }
+  header.bar {
+    -webkit-app-region: drag;
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 8px 9px 13px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  header.bar .name {
+    flex: 1; font-size: .68rem; font-weight: 700;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  header.bar button {
+    -webkit-app-region: no-drag;
+    width: 24px; height: 24px; border: none; border-radius: 6px;
+    background: transparent; color: var(--ink-soft);
+    font-size: 15px; line-height: 1; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  header.bar button:hover { background: var(--paper); color: var(--ink); }
+
+  .scroll { flex: 1; overflow-y: auto; padding: 14px 14px 8px; }
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+  .eyebrow { font-size: .62rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin-bottom: 5px; }
+  .next-title { font-size: 1.05rem; font-weight: 650; line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; margin-bottom: 10px; }
+  .big { font-size: 1.85rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; color: var(--far); }
+  .big.u-soon { color: var(--soon); }
+  .big.u-urgent { color: var(--urgent); }
+  .big.u-overdue { color: var(--overdue); }
+  .when { margin-top: 7px; font-size: .74rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+  .divider { margin: 14px 0 10px; border-top: 1px solid var(--line); }
+  .rest-label { font-size: .6rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .item { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; }
+  .item + .item { border-top: 1px dashed var(--line); }
+  .item .d { width: 7px; height: 7px; border-radius: 50%; background: var(--far); flex: none; transform: translateY(-1px); }
+  .item .t { flex: 1; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .c { font-size: .74rem; font-variant-numeric: tabular-nums; color: var(--far); flex: none; }
+  .c.u-soon { color: var(--soon); }
+  .c.u-urgent { color: var(--urgent); font-weight: 700; }
+  .c.u-overdue { color: var(--overdue); }
+
+  .msg { text-align: center; color: var(--ink-soft); padding: 26px 8px; font-size: .84rem; line-height: 1.5; }
+  .msg .btn { -webkit-app-region: no-drag; margin-top: 12px; }
+
+  footer.bar {
+    padding: 8px 14px; border-top: 1px solid var(--line);
+    font-size: .64rem; color: var(--ink-soft);
+    display: flex; justify-content: space-between; background: var(--surface);
+  }
+  footer.bar .link { -webkit-app-region: no-drag; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <header class="bar">
+    <span class="name">Qué se viene</span>
+    <button id="bAdd" title="Agregar">+</button>
+    <button id="bManage" title="Ver todo">☰</button>
+    <button id="bHide" title="Ocultar" data-shell-only>–</button>
+  </header>
+  <div class="scroll mono" id="scroll"></div>
+  <footer class="bar">
+    <span id="count">—</span>
+    <span class="link" id="fManage">gestionar</span>
+  </footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  "use strict";
+  var F = QSV.fmt;
+  var events = [];
+  var authed = false;
+  var scroll = document.getElementById("scroll");
+
+  var IS_SHELL = !!window.qsvShell;
+  if (!IS_SHELL) {
+    document.querySelectorAll("[data-shell-only]").forEach(function (n) { n.hidden = true; });
+  }
+
+  function openManager() {
+    if (window.qsvShell) window.qsvShell.openManager();
+    else window.open("index.html", "_blank");
+  }
+  document.getElementById("bManage").onclick = openManager;
+  document.getElementById("fManage").onclick = openManager;
+  document.getElementById("bAdd").onclick = openManager;
+  document.getElementById("bHide").onclick = function () { if (window.qsvShell) window.qsvShell.hide(); };
+  scroll.addEventListener("dblclick", openManager);
+
+  function decorated() {
+    var now = Date.now();
+    return events
+      .filter(function (e) { return e && e.fecha && e.titulo; })
+      .map(function (e) { var c = Object.assign({}, e); c._dl = new Date(e.fecha).getTime(); return c; })
+      .sort(function (a, b) { return a._dl - b._dl; });
+  }
+
+  function render() {
+    var now = Date.now();
+    var list = decorated();
+    var upcoming = list.filter(function (e) { return e._dl >= now; });
+    var overdue = list.filter(function (e) { return e._dl < now; });
+
+    document.getElementById("count").textContent =
+      !authed && list.length === 0 ? "sin sesión"
+      : list.length === 0 ? "sin eventos"
+      : upcoming.length + (upcoming.length === 1 ? " próximo" : " próximos") +
+        (overdue.length ? " · " + overdue.length + " venc." : "");
+
+    if (!authed && list.length === 0) {
+      scroll.innerHTML = '<div class="msg">Entrá con tu cuenta para ver tus eventos.' +
+        '<br><button class="btn small" id="mIn">Entrar con Google</button></div>';
+      document.getElementById("mIn").onclick = function () {
+        QSV.signIn().catch(function (e) { alert("No se pudo entrar: " + (e.message || e)); });
+      };
+      return;
+    }
+
+    var head = upcoming[0] || overdue[overdue.length - 1];
+    if (!head) {
+      scroll.innerHTML = '<div class="msg">Nada anotado todavía.' +
+        '<br><button class="btn small" id="mAdd">+ Agregar evento</button></div>';
+      document.getElementById("mAdd").onclick = openManager;
+      return;
+    }
+
+    var u = F.urgency(head._dl, now);
+    var label = (head.materia ? F.esc(head.materia) + " · " : "") + F.esc(head.tipo || "evento");
+    var html =
+      '<div class="eyebrow">' + (head._dl < now ? "Vencido" : "Lo próximo") + " · " + label + "</div>" +
+      '<div class="next-title">' + F.esc(head.titulo) + "</div>" +
+      '<div class="big u-' + u + '" data-dl="' + head._dl + '" data-big>' + F.fmtBig(head._dl, now) + "</div>" +
+      '<div class="when">' + F.fmtWhen(new Date(head._dl)) + "</div>";
+
+    var rest = upcoming.slice(1, 8);
+    if (rest.length) {
+      html += '<div class="divider"></div><div class="rest-label">Después</div>';
+      html += rest.map(function (e) {
+        var eu = F.urgency(e._dl, now);
+        var col = e.materia ? "hsl(" + F.materiaHue(e.materia) + " 45% 45%)" : "var(--far)";
+        return '<div class="item"><span class="d" style="background:' + col + '"></span>' +
+          '<span class="t">' + F.esc(e.titulo) + "</span>" +
+          '<span class="c u-' + eu + '" data-dl="' + e._dl + '" data-mini>' + F.fmtMini(e._dl, now) + "</span></div>";
+      }).join("");
+    }
+    scroll.innerHTML = html;
+  }
+
+  function tick() {
+    var now = Date.now();
+    var big = scroll.querySelector("[data-big]");
+    if (big) {
+      var dl = Number(big.getAttribute("data-dl"));
+      big.textContent = F.fmtBig(dl, now);
+      big.className = "big u-" + F.urgency(dl, now);
+    }
+    scroll.querySelectorAll("[data-mini]").forEach(function (m) {
+      var d = Number(m.getAttribute("data-dl"));
+      m.textContent = F.fmtMini(d, now);
+      m.className = "c u-" + F.urgency(d, now);
+    });
+  }
+
+  QSV.onAuth(function (user) {
+    authed = !!user;
+    QSV.subscribe(function (list) { events = list || []; render(); });
+    render();
+  });
+
+  setInterval(tick, 1000);
+  setInterval(render, 30000);
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#2d5f4c" />
+<title>Qué Se Viene</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div id="gate" class="gate" hidden>
+  <div class="inner">
+    <h1>Qué Se Viene</h1>
+    <p>Tus parciales, entregas y trámites con cuenta regresiva. Entrá con tu cuenta de Google para verlos en todos tus dispositivos.</p>
+    <button class="btn" id="loginBtn">Entrar con Google</button>
+    <p id="loginErr" style="color:var(--urgent);font-size:.85rem;margin-top:14px" hidden></p>
+  </div>
+</div>
+
+<div id="app" class="wrap" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1>Qué Se Viene</h1>
+      <div class="today" id="today"></div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="themeBtn" type="button">auto</button>
+      <button class="icon-btn" id="outBtn" type="button">salir</button>
+    </div>
+  </header>
+
+  <div class="hero" id="hero"></div>
+
+  <div class="toolbar">
+    <button class="btn" id="addBtn" type="button"><span class="plus">+</span> Agregar</button>
+    <span class="hint" id="hint"><span class="dot"></span><span id="hintTxt">sincronizado</span></span>
+  </div>
+
+  <div class="filters" id="filters"></div>
+  <div id="board"></div>
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <h3 id="dlgTitle">Nuevo evento</h3>
+    <button class="x-btn" type="button" id="dlgClose" aria-label="Cerrar">&times;</button>
+  </div>
+  <form id="form">
+    <div class="field">
+      <label for="f-titulo">Qué es</label>
+      <input type="text" id="f-titulo" name="titulo" required placeholder="Ej: 2º parcial de Álgebra" autocomplete="off" />
+    </div>
+    <div class="row-2">
+      <div class="field">
+        <label for="f-materia">Materia</label>
+        <input type="text" id="f-materia" name="materia" list="materias" placeholder="Álgebra" autocomplete="off" />
+        <datalist id="materias"></datalist>
+      </div>
+      <div class="field">
+        <label for="f-tipo">Tipo</label>
+        <select id="f-tipo" name="tipo">
+          <option>Parcial</option><option>Final</option><option>TP</option>
+          <option>Entrega</option><option>Oral</option><option>Trámite</option><option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-fecha">Cuándo</label>
+      <input type="datetime-local" id="f-fecha" name="fecha" required />
+    </div>
+    <div class="field">
+      <label>Prioridad</label>
+      <div class="seg">
+        <label><input type="radio" name="prioridad" value="alta" />Alta</label>
+        <label><input type="radio" name="prioridad" value="media" checked />Media</label>
+        <label><input type="radio" name="prioridad" value="baja" />Baja</label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="f-notas">Notas</label>
+      <textarea id="f-notas" name="notas" placeholder="Temas, unidades, aula, links…"></textarea>
+    </div>
+    <div class="dlg-actions">
+      <button type="button" class="btn-danger" id="delBtn" hidden>Eliminar</button>
+      <span class="grow"></span>
+      <button type="button" class="btn ghost small" id="cancelBtn">Cancelar</button>
+      <button type="submit" class="btn small">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="app.js"></script>
+<script>
+  "use strict";
+  var F = QSV.fmt;
+  var LS_THEME = "qsv:theme";
+  var events = [];
+  var filterMateria = "__all";
+  var editingId = null;
+  var unsub = null;
+
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var el = {
+    gate: $("#gate"), app: $("#app"), loginBtn: $("#loginBtn"), loginErr: $("#loginErr"),
+    today: $("#today"), hero: $("#hero"), board: $("#board"), filters: $("#filters"),
+    addBtn: $("#addBtn"), hint: $("#hint"), hintTxt: $("#hintTxt"),
+    dlg: $("#dlg"), form: $("#form"), dlgTitle: $("#dlgTitle"), delBtn: $("#delBtn"),
+    materias: $("#materias"), themeBtn: $("#themeBtn"), outBtn: $("#outBtn")
+  };
+
+  /* ---------- tema ---------- */
+  var modes = ["auto", "light", "dark"];
+  function applyTheme(m) {
+    if (m === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", m);
+    el.themeBtn.textContent = m;
+    try { localStorage.setItem(LS_THEME, m); } catch (e) {}
+  }
+  var t0 = "auto";
+  try { t0 = localStorage.getItem(LS_THEME) || "auto"; } catch (e) {}
+  applyTheme(t0);
+  el.themeBtn.onclick = function () {
+    applyTheme(modes[(modes.indexOf(el.themeBtn.textContent.trim()) + 1) % 3]);
+  };
+
+  /* ---------- auth ---------- */
+  el.loginBtn.onclick = function () {
+    el.loginErr.hidden = true;
+    el.loginBtn.disabled = true;
+    QSV.signIn().catch(function (e) {
+      el.loginErr.textContent = "No se pudo entrar: " + (e.message || e.code || e);
+      el.loginErr.hidden = false;
+    }).finally(function () { el.loginBtn.disabled = false; });
+  };
+  el.outBtn.onclick = function () { QSV.signOut(); };
+
+  QSV.onAuth(function (user) {
+    if (unsub) { unsub(); unsub = null; }
+    if (user) {
+      el.gate.hidden = true;
+      el.app.hidden = false;
+      unsub = QSV.subscribe(function (list) {
+        events = list || [];
+        render();
+      });
+    } else {
+      el.app.hidden = true;
+      el.gate.hidden = false;
+      events = [];
+    }
+  });
+
+  window.addEventListener("online", function () { setHint(true); });
+  window.addEventListener("offline", function () { setHint(false); });
+  function setHint(on) {
+    el.hint.classList.toggle("off", !on);
+    el.hintTxt.textContent = on ? "sincronizado" : "sin conexión — se guarda al volver";
+  }
+  setHint(navigator.onLine);
+
+  /* ---------- render ---------- */
+  function decorate(list) {
+    list.forEach(function (e) { e._dl = new Date(e.fecha).getTime(); });
+    list.sort(function (a, b) { return a._dl - b._dl; });
+  }
+  function rowHTML(e, now) {
+    var u = F.urgency(e._dl, now);
+    var mh = e.materia ? F.materiaHue(e.materia) : 0;
+    var chips = "";
+    if (e.materia) chips += '<span class="chip materia" style="--mh:' + mh + '">' + F.esc(e.materia) + "</span>";
+    if (e.tipo) chips += '<span class="chip tipo">' + F.esc(e.tipo) + "</span>";
+    return '<button class="row' + (u === "overdue" ? " done" : "") + '" data-id="' + F.esc(e.id) +
+      '" data-deadline="' + e._dl + '">' +
+      '<span class="stripe p-' + F.esc(e.prioridad || "media") + '"></span>' +
+      '<span class="body"><span class="r-title">' + F.esc(e.titulo) + "</span>" +
+      '<span class="meta">' + chips +
+      '<span class="chip tipo" style="background:transparent">' + F.fmtWhen(new Date(e._dl)) + "</span>" +
+      "</span></span>" +
+      '<span class="count u-' + u + '" data-count>' + F.fmtShort(e._dl, now) + "</span></button>";
+  }
+  function bucketHTML(title, arr, now) {
+    if (!arr.length) return "";
+    return '<section class="bucket"><h3>' + title + " · " + arr.length + '</h3><div class="rows">' +
+      arr.map(function (e) { return rowHTML(e, now); }).join("") + "</div></section>";
+  }
+  function cell(k, label, lead) {
+    return '<div class="cell' + (lead ? " lead" : "") + '"><span class="n mono" data-k="' + k + '">--</span><span class="u">' + label + "</span></div>";
+  }
+  function updateHeroClock(now) {
+    var box = el.hero.querySelector(".clock");
+    if (!box) return;
+    var dl = Number(box.getAttribute("data-hero-deadline"));
+    var p = F.parts(dl - now);
+    var map = { d: p.d, h: F.pad(p.h), m: F.pad(p.m), s: F.pad(p.s) };
+    box.querySelectorAll(".n").forEach(function (n) { n.textContent = map[n.getAttribute("data-k")]; });
+  }
+  function renderHero(e, now) {
+    if (!e) {
+      el.hero.className = "hero";
+      el.hero.innerHTML = '<p class="eyebrow">Lo próximo</p>' +
+        '<div class="hero-empty"><p>No tenés nada próximo cargado.<br>Anotá tu primer parcial, entrega o trámite.</p>' +
+        '<button class="btn" type="button" id="heroAdd"><span class="plus">+</span> Agregar evento</button></div>';
+      $("#heroAdd").onclick = function () { openDialog(null); };
+      return;
+    }
+    var past = e._dl < now;
+    el.hero.className = "hero" + (past ? " past" : "");
+    var uc = F.urgency(e._dl, now);
+    var color = uc === "urgent" ? "var(--urgent)" : uc === "soon" ? "var(--soon)" : "var(--accent)";
+    var label = (e.materia ? F.esc(e.materia) + " · " : "") + F.esc(e.tipo || "evento");
+    el.hero.style.setProperty("--hero-color", color);
+    el.hero.innerHTML =
+      '<p class="eyebrow">' + (past ? "Pendiente vencido" : "Lo próximo") + " · " + label + "</p>" +
+      "<h2>" + F.esc(e.titulo) + "</h2>" +
+      '<p class="sub">' + F.fmtWhen(new Date(e._dl)) + " · " + F.capFirst(F.DIAS[new Date(e._dl).getDay()]) + "</p>" +
+      '<div class="clock" data-hero-deadline="' + e._dl + '">' +
+      cell("d", "días", true) + cell("h", "horas") + cell("m", "min") + cell("s", "seg") + "</div>";
+    updateHeroClock(Date.now());
+  }
+  function renderFilters(materias) {
+    if (!materias.length) { el.filters.innerHTML = ""; return; }
+    var html = '<button class="fchip' + (filterMateria === "__all" ? " is-active" : "") + '" data-m="__all">Todas</button>';
+    html += materias.map(function (m) {
+      return '<button class="fchip' + (filterMateria === m ? " is-active" : "") + '" data-m="' + F.esc(m) + '">' + F.esc(m) + "</button>";
+    }).join("");
+    el.filters.innerHTML = html;
+  }
+  function render() {
+    var now = Date.now();
+    var all = events.filter(function (e) { return e && e.fecha && e.titulo; });
+    decorate(all);
+
+    var materias = [];
+    all.forEach(function (e) { if (e.materia && materias.indexOf(e.materia) < 0) materias.push(e.materia); });
+    materias.sort();
+    renderFilters(materias);
+    el.materias.innerHTML = materias.map(function (m) { return '<option value="' + F.esc(m) + '"></option>'; }).join("");
+
+    var shown = all;
+    if (filterMateria !== "__all") shown = all.filter(function (e) { return e.materia === filterMateria; });
+
+    var upcoming = shown.filter(function (e) { return e._dl >= now; });
+    var past = shown.filter(function (e) { return e._dl < now; }).reverse();
+
+    renderHero(upcoming[0], now);
+
+    var wk = [], mo = [], later = [];
+    upcoming.forEach(function (e) {
+      var days = (e._dl - now) / 86400000;
+      if (days <= 7) wk.push(e); else if (days <= 30) mo.push(e); else later.push(e);
+    });
+
+    var html = "";
+    html += bucketHTML("Esta semana", wk, now);
+    html += bucketHTML("Este mes", mo, now);
+    html += bucketHTML("Más adelante", later, now);
+    if (!upcoming.length && !past.length) {
+      html += '<p class="empty-all">Sin eventos' + (filterMateria !== "__all" ? " para esta materia." : " todavía.") + "</p>";
+    }
+    if (past.length) {
+      html += '<details class="past-wrap"><summary>Pasados · ' + past.length + '</summary><div class="rows">' +
+        past.map(function (e) { return rowHTML(e, now); }).join("") + "</div></details>";
+    }
+    el.board.innerHTML = html;
+  }
+  function tick() {
+    var now = Date.now();
+    updateHeroClock(now);
+    el.board.querySelectorAll("[data-count]").forEach(function (c) {
+      var dl = Number(c.closest(".row").getAttribute("data-deadline"));
+      c.textContent = F.fmtShort(dl, now);
+      c.className = "count u-" + F.urgency(dl, now);
+    });
+  }
+  setInterval(tick, 1000);
+  setInterval(function () { if (!el.app.hidden) render(); }, 60000);
+
+  /* ---------- dialog ---------- */
+  function openDialog(id) {
+    editingId = id;
+    el.form.reset();
+    if (id) {
+      var e = null;
+      events.forEach(function (x) { if (x.id === id) e = x; });
+      if (!e) return;
+      el.dlgTitle.textContent = "Editar evento";
+      el.form.titulo.value = e.titulo || "";
+      el.form.materia.value = e.materia || "";
+      el.form.tipo.value = e.tipo || "Parcial";
+      el.form.fecha.value = F.toLocalInput(e.fecha);
+      var r = el.form.querySelector('input[name=prioridad][value="' + (e.prioridad || "media") + '"]');
+      if (r) r.checked = true;
+      el.form.notas.value = e.notas || "";
+      el.delBtn.hidden = false;
+      el.form._createdAt = e.createdAt || Date.now();
+    } else {
+      el.dlgTitle.textContent = "Nuevo evento";
+      el.delBtn.hidden = true;
+      el.form._createdAt = Date.now();
+      var d = new Date(Date.now() + 3 * 86400000);
+      d.setMinutes(0, 0, 0);
+      el.form.fecha.value = F.toLocalInput(d);
+    }
+    if (typeof el.dlg.showModal === "function" && !el.dlg.open) el.dlg.showModal();
+    setTimeout(function () { el.form.titulo.focus(); }, 30);
+  }
+  function closeDialog() { if (el.dlg.open) el.dlg.close(); }
+
+  el.addBtn.onclick = function () { openDialog(null); };
+  $("#dlgClose").onclick = closeDialog;
+  $("#cancelBtn").onclick = closeDialog;
+  el.dlg.addEventListener("click", function (ev) { if (ev.target === el.dlg) closeDialog(); });
+
+  el.delBtn.onclick = function () {
+    if (editingId && confirm("¿Eliminar este evento?")) {
+      QSV.remove(editingId).catch(function (e) { alert("No se pudo eliminar: " + e.message); });
+      closeDialog();
+    }
+  };
+
+  el.form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var f = el.form;
+    var titulo = f.titulo.value.trim();
+    var fecha = f.fecha.value;
+    if (!titulo || !fecha) return;
+    var data = {
+      titulo: titulo,
+      materia: f.materia.value.trim(),
+      tipo: f.tipo.value,
+      fecha: fecha,
+      prioridad: (f.querySelector("input[name=prioridad]:checked") || {}).value || "media",
+      notas: f.notas.value.trim(),
+      createdAt: f._createdAt || Date.now()
+    };
+    QSV.put(editingId, data).catch(function (e) { alert("No se pudo guardar: " + e.message); });
+    closeDialog();
+  });
+
+  el.board.addEventListener("click", function (ev) {
+    var row = ev.target.closest(".row");
+    if (row) openDialog(row.getAttribute("data-id"));
+  });
+  el.filters.addEventListener("click", function (ev) {
+    var b = ev.target.closest(".fchip");
+    if (!b) return;
+    filterMateria = b.getAttribute("data-m");
+    render();
+  });
+  document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && el.dlg.open) closeDialog(); });
+
+  (function () {
+    var d = new Date();
+    el.today.textContent = F.capFirst(F.DIAS[d.getDay()]) + " " + d.getDate() + " de " + F.MESES[d.getMonth()];
+  })();
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

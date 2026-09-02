@@ -1,0 +1,29 @@
+REGLAS DE SEGURIDAD — Realtime Database (proyecto WidgetFacu)
+============================================================
+
+Dónde: consola de Firebase -> Realtime Database -> pestaña "Reglas".
+Reemplazá TODO el contenido por esto y tocá "Publicar":
+
+{
+  "rules": {
+    "agenda": {
+      "$uid": {
+        ".read":  "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}
+
+Esto hace que cada persona solo pueda leer y escribir SUS propios
+eventos (agenda/<su-uid>/eventos/...). Nadie más los ve.
+
+------------------------------------------------------------------
+DOMINIOS AUTORIZADOS (para que ande el login con Google)
+------------------------------------------------------------------
+Consola de Firebase -> Authentication -> Settings -> "Dominios autorizados"
+-> Agregar dominio:
+
+    franciscorodriguez-hue.github.io
+
+(localhost y widgetfacu.firebaseapp.com ya vienen por defecto.)
