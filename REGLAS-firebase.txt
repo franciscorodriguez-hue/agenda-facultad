@@ -21,6 +21,6 @@ eventos (agenda/<su-uid>/eventos/...). Nadie más los ve.
 ------------------------------------------------------------------
 DOMINIOS AUTORIZADOS (login con Google)
 ------------------------------------------------------------------
-Como la app se sirve desde Firebase Hosting (widgetfacu.web.app), NO hay
-que agregar nada: widgetfacu.web.app y widgetfacu.firebaseapp.com ya están
-autorizados por defecto. (El de github.io ya no se usa.)
+Como la app se sirve desde Firebase Hosting en widgetfacu.firebaseapp.com, NO hay
+que agregar nada: ese dominio ya está autorizado por defecto.
+(El de github.io ya no se usa.)

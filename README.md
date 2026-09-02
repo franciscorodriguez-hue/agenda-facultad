@@ -4,7 +4,7 @@ Agenda de facultad con cuenta regresiva a cada parcial, entrega y trámite.
 Los datos viven en **Firebase Realtime Database** (proyecto `WidgetFacu`) y se
 sincronizan en tiempo real entre el celular y la compu.
 
-- **App (celular / navegador):** https://widgetfacu.web.app  → se puede "instalar".
+- **App (celular / navegador):** https://widgetfacu.firebaseapp.com  → se puede "instalar".
 - **Widget de escritorio (Windows):** carpeta `../Que Se Viene` (ventana flotante).
 
 Ambos usan los mismos datos y el mismo login.
@@ -22,7 +22,8 @@ npx -y firebase-tools login          # autoriza con tu cuenta Google (una vez)
 npx -y firebase-tools deploy --only hosting
 ```
 
-Queda en **https://widgetfacu.web.app** (y también `widgetfacu.firebaseapp.com`).
+Queda en **https://widgetfacu.firebaseapp.com** (y también en `widgetfacu.web.app`,
+pero para el login usamos siempre `firebaseapp.com`).
 
 Para actualizar después de cambiar algo: repetir el `deploy`.
 El repo de GitHub queda como copia del código:
@@ -36,7 +37,7 @@ git add . && git commit -m "cambios" && git push
 
 - Realtime Database creada (us-central1), reglas en `REGLAS-firebase.txt`
 - Authentication → Google habilitado
-- `widgetfacu.web.app` y `widgetfacu.firebaseapp.com` están autorizados por defecto
+- `widgetfacu.firebaseapp.com` está autorizado por defecto (no hay que tocar nada)
 
 ---
 
