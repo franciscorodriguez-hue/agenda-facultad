@@ -126,27 +126,28 @@
   window.QSV = {
     isShell: !!window.qsvShell,
 
+    lastAuthError: null,
+
     onAuth: function (cb) {
+      var self = this;
+      // Completa la vuelta de signInWithRedirect (y captura su error, si hubo).
+      auth.getRedirectResult().catch(function (err) {
+        self.lastAuthError = err;
+        console.error("redirect result error", err);
+      });
       auth.onAuthStateChanged(function (u) {
         uid = u ? u.uid : null;
         cb(u);
       });
-      // Completa un posible signInWithRedirect anterior.
-      auth.getRedirectResult().catch(function () {});
     },
 
+    // Redirección (no popup): evita el bloqueo COOP de accounts.google.com.
+    // La app se sirve desde el mismo dominio que authDomain (Firebase Hosting),
+    // así que la vuelta funciona sin cookies de terceros.
     signIn: function () {
       var provider = new firebase.auth.GoogleAuthProvider();
       provider.setCustomParameters({ prompt: "select_account" });
-      return auth.signInWithPopup(provider).catch(function (err) {
-        var code = err && err.code;
-        if (code === "auth/popup-blocked" ||
-            code === "auth/cancelled-popup-request" ||
-            code === "auth/operation-not-supported-in-this-environment") {
-          return auth.signInWithRedirect(provider);
-        }
-        throw err;
-      });
+      return auth.signInWithRedirect(provider);
     },
 
     signOut: function () { return auth.signOut(); },

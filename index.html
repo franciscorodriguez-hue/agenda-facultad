@@ -154,6 +154,11 @@
       el.app.hidden = true;
       el.gate.hidden = false;
       events = [];
+      if (QSV.lastAuthError) {
+        el.loginErr.textContent = "No se pudo entrar: " +
+          (QSV.lastAuthError.message || QSV.lastAuthError.code || QSV.lastAuthError);
+        el.loginErr.hidden = false;
+      }
     }
   });
 
